@@ -18,6 +18,18 @@ python3 audit_save.py /path/to/Vault1.sav
 Exits non-zero when it finds something. Run it on a save before an edit and
 again after, and the diff in findings is what the editor did.
 
+## Repairing a save
+
+```
+cd workbench
+python3 repair_save.py /path/to/Vault1.sav                    # dry run
+python3 repair_save.py /path/to/Vault1.sav --write fixed.sav  # apply
+```
+
+Moves `constructMgr.roomDeserializeID` and `dwellers.mrhId` forward when an
+editor has handed out ids past them, and changes nothing else. Verified on a
+real editor-written save: exactly two values differ between input and output.
+
 ## Save format
 
 `Vault*.sav` is base64 text wrapping AES-256-CBC ciphertext:
