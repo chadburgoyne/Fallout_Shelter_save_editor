@@ -51,45 +51,52 @@ def locate_dwellers(save):
     return located
 
 
-def check_orphans(save, out):
-    """Living dwellers the game has nowhere to place. Crashes the vault on load."""
+def report_unplaced(save, out):
+    """Count dwellers with no location.
+
+    This is NOT corruption. A fresh vault ships with all seven starting
+    dwellers unplaced, waiting outside the door, and the game handles that
+    perfectly well. Reported for information only.
+    """
     located = locate_dwellers(save)
-    orphans = []
+    unplaced = []
     for dweller in _dwellers(save):
         did = dweller["serializeId"]
         if located[did]:
             continue
         if dweller.get("health", {}).get("permaDeath") or dweller.get("deathTime", -1) != -1:
-            continue  # dead and already accounted for elsewhere
-        orphans.append((did, f'{dweller["name"]} {dweller["lastName"]}'.strip()))
-    if orphans:
-        out.append(f"ORPHANED DWELLERS: {len(orphans)} living dwellers have no location")
-        for did, name in orphans:
-            out.append(f"    id {did}: {name} (savedRoom=-1, in no room/team/quest)")
-    return orphans
+            continue
+        unplaced.append((did, f'{dweller["name"]} {dweller["lastName"]}'.strip()))
+    if unplaced:
+        out.append(f"note: {len(unplaced)} dwellers are unplaced (waiting outside). Normal, not an error.")
+    return unplaced
 
 
 def check_id_allocator(save, out):
-    """Next-id counters must sit above every id already in use."""
-    problems = []
-    ids = [x["serializeId"] for x in _dwellers(save)]
-    if ids:
-        counter, highest = save["dwellers"].get("id"), max(ids)
-        if counter is not None and counter <= highest:
-            collide = sorted(i for i in ids if i >= counter)
-            out.append(
-                f"STALE DWELLER ID COUNTER: dwellers.id={counter} but ids run up to {highest}"
-            )
-            out.append(f"    {len(collide)} existing ids are at or above the counter: {collide}")
-            out.append(f"    the next dweller created will reuse id {counter}")
-            problems.append(("dwellers.id", counter, highest))
+    """Id counters record the LAST id handed out, so they must equal the highest.
 
-    actors = [a["serializeId"] for a in save.get("dwellers", {}).get("actors", [])]
-    if actors:
-        mrh, highest = save["dwellers"].get("mrhId"), max(actors)
-        if mrh is not None and mrh <= highest:
-            out.append(f"STALE MR HANDY ID COUNTER: mrhId={mrh} but actor ids run up to {highest}")
-            problems.append(("dwellers.mrhId", mrh, highest))
+    Verified against fresh vaults: seven dwellers with ids 1-7 and
+    ``dwellers.id`` of 7; five rooms with ids 1-5 and
+    ``constructMgr.roomDeserializeID`` of 5. A counter BELOW the highest id in
+    use means the game will re-issue ids that already belong to someone.
+    """
+    problems = []
+    for label, counter, ids in (
+        ("dwellers.id", save.get("dwellers", {}).get("id"),
+         [x["serializeId"] for x in _dwellers(save)]),
+        ("dwellers.mrhId", save.get("dwellers", {}).get("mrhId"),
+         [a["serializeId"] for a in save.get("dwellers", {}).get("actors", [])]),
+        ("constructMgr.roomDeserializeID", save.get("constructMgr", {}).get("roomDeserializeID"),
+         [r["deserializeID"] for r in _rooms(save)]),
+    ):
+        if counter is None or not ids:
+            continue
+        highest = max(ids)
+        if counter < highest:
+            stale = sorted(i for i in ids if i > counter)
+            out.append(f"STALE ID COUNTER: {label}={counter} but ids run up to {highest}")
+            out.append(f"    {len(stale)} ids are above the counter: {stale}")
+            problems.append((label, counter, highest))
     return problems
 
 
@@ -179,12 +186,65 @@ def check_grid(save, out):
 def run(save):
     """Run every check. Returns (findings, ok)."""
     out = []
+    report_unplaced(save, out)
     found = any([
         bool(check_duplicate_ids(save, out)),
         bool(check_id_allocator(save, out)),
         bool(check_cross_references(save, out)),
-        bool(check_orphans(save, out)),
         bool(check_capacity(save, out)),
         bool(check_grid(save, out)),
+        bool(check_room_schema(save, out)),
     ])
     return out, not found
+
+
+# Every room key the game itself writes, and the types it writes them as.
+# Collected from four untouched saves (three fresh vaults and one long-running
+# vault). A key outside this table was put there by an editor; a type outside it
+# means an editor changed a field's type, which is what breaks a typed
+# deserializer.
+ROOM_SCHEMA = {
+    "CompletedTime": (int,), "CraftingItemId": (str, type(None)),
+    "ExperienceRewardIsDirty": (bool,), "IngredientItemIds": (list,),
+    "assignedDecoration": (str,), "broken": (bool,), "children": (list,),
+    "class": (str,), "col": (int,), "currentState": (dict,),
+    "currentStateName": (str,), "deadDwellers": (list,), "deserializeID": (int,),
+    "dwellerWithPendingCompleteTraining": (list,), "dwellers": (list,),
+    "emergencyDone": (bool,), "level": (int,), "mergeLevel": (int,),
+    "mrHandyList": (list,), "newDwellerReady": (bool,),
+    "numberOfProductionCycle": (int,), "onlyIncreaseHappiness": (bool,),
+    "partners": (list,), "power": (bool,), "roomHealth": (dict,),
+    "roomOutline": (bool,), "roomVisibility": (bool,), "row": (int,),
+    "rushTask": (int,), "slots": (list,), "storage": (dict,), "type": (str,),
+    "withHole": (bool,),
+}
+
+
+def _is_type(value, expected):
+    """isinstance, but bool and int are kept distinct.
+
+    Python treats bool as a subclass of int, which would hide exactly the
+    mistake worth catching here: a boolean field written back as 0 or 1.
+    """
+    if isinstance(value, bool) != (bool in expected):
+        return False
+    return isinstance(value, expected)
+
+
+def check_room_schema(save, out):
+    """Catch keys an editor invented and fields whose type it changed."""
+    problems = []
+    for room in _rooms(save):
+        label = f"room {room.get('deserializeID')} ({room.get('type')})"
+        for key, value in room.items():
+            expected = ROOM_SCHEMA.get(key)
+            if expected is None:
+                out.append(f"UNKNOWN ROOM KEY: {label} has '{key}'={value!r}, which the game never writes")
+                problems.append((room.get("deserializeID"), key))
+            elif not _is_type(value, expected):
+                names = "/".join(t.__name__ for t in expected)
+                out.append(
+                    f"WRONG TYPE: {label} has '{key}'={value!r} ({type(value).__name__}), expected {names}"
+                )
+                problems.append((room.get("deserializeID"), key))
+    return problems
