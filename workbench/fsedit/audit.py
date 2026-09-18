@@ -73,21 +73,25 @@ def report_unplaced(save, out):
 
 
 def check_id_allocator(save, out):
-    """Id counters record the LAST id handed out, so they must equal the highest.
+    """Id counters must never sit below the highest id already in use.
 
-    Verified against fresh vaults: seven dwellers with ids 1-7 and
-    ``dwellers.id`` of 7; five rooms with ids 1-5 and
-    ``constructMgr.roomDeserializeID`` of 5. A counter BELOW the highest id in
-    use means the game will re-issue ids that already belong to someone.
+    Verified across eight game-written saves: ``roomDeserializeID`` is always
+    at or above the highest room id (it runs ahead once rooms are destroyed),
+    and ``mrhId`` likewise for Mr Handys. An editor that hands out ids without
+    advancing the counter leaves the game to re-issue ids that already belong
+    to something.
+
+    ``dwellers.id`` is deliberately NOT checked. The game writes 0 for it in a
+    vault with seven dwellers and 9 in a vault with nine, so whatever it
+    tracks, it is not a simple next-id allocator and a low value proves
+    nothing.
     """
     problems = []
     for label, counter, ids in (
-        ("dwellers.id", save.get("dwellers", {}).get("id"),
-         [x["serializeId"] for x in _dwellers(save)]),
-        ("dwellers.mrhId", save.get("dwellers", {}).get("mrhId"),
-         [a["serializeId"] for a in save.get("dwellers", {}).get("actors", [])]),
         ("constructMgr.roomDeserializeID", save.get("constructMgr", {}).get("roomDeserializeID"),
          [r["deserializeID"] for r in _rooms(save)]),
+        ("dwellers.mrhId", save.get("dwellers", {}).get("mrhId"),
+         [a["serializeId"] for a in save.get("dwellers", {}).get("actors", [])]),
     ):
         if counter is None or not ids:
             continue
@@ -95,7 +99,7 @@ def check_id_allocator(save, out):
         if counter < highest:
             stale = sorted(i for i in ids if i > counter)
             out.append(f"STALE ID COUNTER: {label}={counter} but ids run up to {highest}")
-            out.append(f"    {len(stale)} ids are above the counter: {stale}")
+            out.append(f"    {len(stale)} ids sit above the counter and can be re-issued: {stale}")
             problems.append((label, counter, highest))
     return problems
 
