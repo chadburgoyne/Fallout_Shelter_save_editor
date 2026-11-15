@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Statement Review</title>
+<style>
+:root {
+  --bg: #f5f6f8; --panel: #fff; --text: #1d2330; --muted: #677085; --line: #dde1e8;
+  --accent: #2f6fed; --ok: #18794e; --ok-bg: #e6f6ee; --warn: #9a6400; --warn-bg: #fff4dc;
+  --bad: #c42b2b; --bad-bg: #fde8e8; --prod: #b42318; --in: #18794e; --out: #1d2330;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); }
+button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 5px 10px; color: var(--text); }
+button:hover { border-color: #b9c0cc; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--bad); }
+button.danger.solid { background: var(--bad); border-color: var(--bad); color: #fff; }
+button.link { border: 0; background: none; padding: 2px 4px; color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+input, select { font: inherit; color: inherit; border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; background: #fff; width: 100%; }
+input:focus, select:focus { outline: 2px solid #b8cdfb; border-color: var(--accent); }
+header.top { display: flex; align-items: center; gap: 16px; padding: 10px 18px; background: #1d2330; color: #fff; position: sticky; top: 0; z-index: 5; }
+header.top h1 { font-size: 16px; margin: 0; font-weight: 600; }
+header.top .env { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+header.top select { width: auto; background: #2b3242; color: #fff; border-color: #444d60; }
+header.top .dburl { color: #aab3c5; font-size: 12px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.prod header.top { background: var(--prod); }
+body.prod header.top select { background: #8e1b12; border-color: #d4554a; }
+.prod-flag { display: none; font-weight: 700; letter-spacing: .06em; font-size: 12px; background: #fff; color: var(--prod); padding: 2px 8px; border-radius: 4px; }
+body.prod .prod-flag { display: inline-block; }
+.layout { display: grid; grid-template-columns: 290px 1fr; min-height: calc(100vh - 48px); }
+aside { border-right: 1px solid var(--line); background: var(--panel); padding: 14px; overflow-y: auto; max-height: calc(100vh - 48px); position: sticky; top: 48px; }
+aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 18px 0 8px; display: flex; justify-content: space-between; align-items: center; }
+.drop { border: 2px dashed #c3cad6; border-radius: 8px; padding: 18px 10px; text-align: center; color: var(--muted); cursor: pointer; }
+.drop.over { border-color: var(--accent); background: #eef3ff; color: var(--accent); }
+.doclist { list-style: none; padding: 0; margin: 0; }
+.doclist li { padding: 7px 8px; border-radius: 6px; cursor: pointer; display: flex; gap: 6px; align-items: center; border: 1px solid transparent; }
+.doclist li:hover { background: #f0f2f6; }
+.doclist li.active { background: #eef3ff; border-color: #c9d8fb; }
+.doclist .name { flex: 1; min-width: 0; }
+.doclist .name b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doclist .name small { color: var(--muted); }
+.pill { font-size: 11px; padding: 1px 7px; border-radius: 10px; white-space: nowrap; font-weight: 600; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.dirty { background: #e8edf7; color: #3d4b66; }
+main { padding: 16px 20px 90px; min-width: 0; }
+.empty { color: var(--muted); text-align: center; padding: 80px 20px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.card h2 { font-size: 14px; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+.card h2 .spacer { flex: 1; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
+label.f { display: block; font-size: 12px; color: var(--muted); }
+label.f input, label.f select { margin-top: 3px; color: var(--text); }
+.custom-fields .row { display: grid; grid-template-columns: 1fr 2fr auto; gap: 8px; margin-top: 8px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.split.with-pdf { grid-template-columns: minmax(0, 1fr) minmax(340px, 36%); }
+.pdfpane { position: sticky; top: 64px; height: calc(100vh - 90px); display: flex; flex-direction: column; }
+.pdfpane .tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.pdfpane iframe, .pdfpane pre { flex: 1; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; margin: 0; }
+.pdfpane pre { overflow: auto; padding: 10px; font-size: 12px; white-space: pre-wrap; }
+.recon { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat.ok { background: var(--ok-bg); border-color: #b7e3cb; }
+.stat.bad { background: var(--bad-bg); border-color: #f3b9b9; }
+.formula { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.issues { list-style: none; padding: 0; margin: 10px 0 0; max-height: 180px; overflow-y: auto; }
+.issues li { padding: 4px 8px; border-radius: 5px; margin-bottom: 3px; font-size: 13px; cursor: pointer; }
+.issues li.err { background: var(--bad-bg); color: var(--bad); }
+.issues li.warn { background: var(--warn-bg); color: var(--warn); }
+.issues li.info { background: #eef1f6; color: #3d4b66; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.toolbar input[type=search] { width: 220px; }
+.tablewrap { overflow-x: auto; }
+table.txns { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.txns th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.txns td { padding: 3px 4px; border-bottom: 1px solid #eef0f4; vertical-align: middle; }
+table.txns td.num { color: var(--muted); font-size: 12px; text-align: right; width: 30px; }
+table.txns input { border-color: transparent; background: transparent; padding: 4px 5px; }
+table.txns input:hover { border-color: var(--line); background: #fff; }
+table.txns input:focus { background: #fff; }
+table.txns { table-layout: fixed; }
+table.txns input.amount { text-align: right; font-weight: 600; }
+table.txns input.amount.in { color: var(--in); }
+table.txns input[type=date] { padding-right: 2px; }
+table.txns tr.has-err td { background: #fff5f5; }
+table.txns tr.has-err input.bad { border-color: var(--bad); background: #fff; }
+table.txns tr.has-warn td { background: #fffbef; }
+table.txns tr.flash td { animation: flash 1.2s; }
+@keyframes flash { from { background: #cfe0ff; } }
+.flags { white-space: nowrap; font-size: 12px; }
+.flag { display: inline-block; padding: 0 5px; border-radius: 4px; margin-right: 2px; cursor: help; }
+.flag.err { background: var(--bad-bg); color: var(--bad); }
+.flag.warn { background: var(--warn-bg); color: var(--warn); }
+.rowbtns { white-space: nowrap; }
+.rowbtns button { padding: 2px 6px; font-size: 12px; }
+th .rmcol { border: 0; background: none; color: var(--muted); padding: 0 3px; }
+.unparsed { list-style: none; padding: 0; margin: 0; max-height: 260px; overflow-y: auto; }
+.unparsed li { display: flex; gap: 8px; align-items: center; padding: 5px 4px; border-bottom: 1px solid #eef0f4; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+.unparsed li span { flex: 1; }
+.warnings { margin: 0 0 14px; padding: 0; list-style: none; }
+.warnings li { background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: 6px 10px; margin-bottom: 4px; }
+.commitbar { position: fixed; bottom: 0; left: 290px; right: 0; background: var(--panel); border-top: 1px solid var(--line); padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 4; }
+.commitbar .status { flex: 1; color: var(--muted); }
+body.prod .commitbar .primary { background: var(--prod); border-color: var(--prod); }
+details summary { cursor: pointer; font-weight: 600; }
+dialog { border: 0; border-radius: 10px; padding: 0; width: min(520px, 92vw); box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+dialog::backdrop { background: rgba(20, 24, 33, .45); }
+dialog .dh { padding: 14px 18px; font-weight: 600; border-bottom: 1px solid var(--line); }
+dialog .db { padding: 14px 18px; }
+dialog .df { padding: 12px 18px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+.toast { position: fixed; right: 20px; bottom: 70px; background: #1d2330; color: #fff; padding: 10px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; z-index: 50; max-width: 420px; }
+.toast.show { opacity: 1; }
+.toast.err { background: var(--bad); }
+.muted { color: var(--muted); }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  aside { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  .commitbar { left: 0; }
+  header.top .dburl { display: none; }
+  header.top { gap: 10px; padding: 10px 16px; }
+  .split.with-pdf { grid-template-columns: minmax(0, 1fr); }
+  .pdfpane { position: static; height: 70vh; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Statement Review</h1>
+  <span class="prod-flag">PRODUCTION</span>
+  <div class="env">
+    <span>Database</span>
+    <select id="envSelect" aria-label="Database environment"></select>
+    <span class="dburl" id="dbUrl"></span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="drop" id="drop" tabindex="0">
+      <b>Drop statement PDFs here</b><br>
+      <small>or click to choose · Discover, Chase, Zions, others</small>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+
+    <h3>Open <span id="openCount" class="muted"></span></h3>
+    <ul class="doclist" id="docList"></ul>
+    <button class="link" id="newBlank">+ Blank statement</button>
+
+    <h3><span>Saved in <span id="savedEnvName">dev</span></span><button class="link" id="refreshSaved" title="Reload">↻</button></h3>
+    <ul class="doclist" id="savedList"><li class="muted">Loading…</li></ul>
+  </aside>
+
+  <main id="main">
+    <div class="empty" id="emptyState">
+      <h2>Upload a monthly statement to start</h2>
+      <p>Each PDF is read into an editable draft. Fix anything that was misread, add or remove rows and fields,
+        check that it balances, then commit it to the selected database.</p>
+    </div>
+    <div id="editor" hidden></div>
+  </main>
+</div>
+
+<div class="commitbar" id="commitBar" hidden>
+  <span class="status" id="commitStatus"></span>
+  <button id="discardBtn">Close</button>
+  <button class="primary" id="commitBtn">Commit</button>
+</div>
+
+<dialog id="dlg"><form method="dialog"><div class="dh" id="dlgTitle"></div><div class="db" id="dlgBody"></div><div class="df" id="dlgFoot"></div></form></dialog>
+<div class="toast" id="toast"></div>
+
+<datalist id="categories">
+  <option>Groceries</option><option>Dining</option><option>Gas</option><option>Utilities</option><option>Rent/Mortgage</option>
+  <option>Income</option><option>Transfer</option><option>Payment</option><option>Shopping</option><option>Subscriptions</option>
+  <option>Travel</option><option>Healthcare</option><option>Insurance</option><option>Fees</option><option>Interest</option><option>Other</option>
+</datalist>
+
+<script>
+"use strict";
+
+// ------------------------------------------------------------------ state
+const state = {
+  env: localGet("env") || "dev",
+  envs: [],
+  docs: [],          // open statements (drafts and ones loaded from a DB)
+  activeKey: null,
+  saved: [],
+  filter: "",
+  pane: "pdf",       // pdf | text
+  showPdf: window.innerWidth >= 1700, // side-by-side original only when there is room; toggle anytime
+};
+let keySeq = 1;
+const BANKS = ["Discover", "Chase", "Zions", "Other"];
+const TYPES = [["checking", "Checking"], ["savings", "Savings"], ["credit_card", "Credit card"]];
+
+function localGet(k) { try { return localStorage.getItem("sr." + k); } catch { return null; } }
+function localSet(k, v) { try { localStorage.setItem("sr." + k, v); } catch {} }
+
+// ------------------------------------------------------------------ utils
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/** "1,234.56" | "-$5" | "(5.00)" | "5.00-" -> integer cents, or null if blank/invalid. */
+function toCents(v) {
+  if (v === null || v === undefined) return null;
+  let s = String(v).trim();
+  if (!s) return null;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  if (/CR$/i.test(s)) { neg = true; s = s.replace(/CR$/i, ""); }
+  if (s.endsWith("-")) { neg = true; s = s.slice(0, -1); }
+  s = s.replace(/[$,\s]/g, "");
+  if (s.startsWith("+")) s = s.slice(1);
+  if (s.startsWith("-")) { neg = !neg; s = s.slice(1); }
+  if (!/^\d+(\.\d{1,2})?$|^\.\d{1,2}$/.test(s)) return NaN;
+  const [w, f = ""] = s.split(".");
+  const cents = parseInt(w || "0", 10) * 100 + parseInt((f + "00").slice(0, 2), 10);
+  return neg ? -cents : cents;
+}
+const centsToStr = (c) => (c < 0 ? "-" : "") + (Math.abs(c) / 100).toFixed(2);
+function fmt(c) {
+  if (c === null || c === undefined || Number.isNaN(c)) return "—";
+  return (c < 0 ? "-$" : "$") + (Math.abs(c) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || "") && !Number.isNaN(Date.parse(s));
+function monthLabel(iso) {
+  if (!isDate(iso)) return "no period";
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleString("en-US", { month: "short", year: "numeric" });
+}
+
+function toast(msg, isErr = false) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast show" + (isErr ? " err" : "");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.className = "toast"), isErr ? 6000 : 3000);
+}
+
+/** Small promise-based modal. buttons: [{label, value, cls}]; confirmText makes the user type a word. */
+function modal({ title, html, buttons, confirmText }) {
+  const dlg = $("#dlg");
+  $("#dlgTitle").textContent = title;
+  $("#dlgBody").innerHTML = html + (confirmText
+    ? `<p>Type <b>${esc(confirmText)}</b> to continue:</p><input id="dlgInput" autocomplete="off">` : "");
+  $("#dlgFoot").innerHTML = buttons.map((b, i) =>
+    `<button value="${esc(b.value)}" class="${esc(b.cls || "")}" data-i="${i}">${esc(b.label)}</button>`).join("");
+  const input = $("#dlgInput");
+  const gated = [...$("#dlgFoot").querySelectorAll("button")].filter((_, i) => buttons[i].needsConfirm);
+  if (input) {
+    gated.forEach((b) => (b.disabled = true));
+    input.addEventListener("input", () => gated.forEach((b) => (b.disabled = input.value.trim() !== confirmText)));
+  }
+  dlg.returnValue = "";
+  dlg.showModal();
+  if (input) input.focus();
+  return new Promise((resolve) => dlg.addEventListener("close", () => resolve(dlg.returnValue || "cancel"), { once: true }));
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  let body = null;
+  try { body = await res.json(); } catch {}
+  if (!res.ok) {
+    const err = new Error(typeof body?.detail === "string" ? body.detail
+      : body?.detail?.message || (Array.isArray(body?.detail) ? body.detail.map((d) => `${d.loc?.slice(-3).join(".")}: ${d.msg}`).join("; ") : `HTTP ${res.status}`));
+    err.status = res.status; err.body = body;
+    throw err;
+  }
+  return body;
+}
+
+// ------------------------------------------------------------------ documents
+function newRow(t = {}) {
+  return {
+    _k: keySeq++,
+    txn_date: t.txn_date || "",
+    post_date: t.post_date || "",
+    description: t.description || "",
+    category: t.category || "",
+    amount: t.amount ?? "",
+    extra: { ...(t.extra || {}) },
+    sign_source: t.sign_source || "manual",
+    page: t.page || null,
+    source_line: t.source_line || null,
+  };
+}
+
+function makeDoc(data, { kind, file, sourceEnv = null, id = null }) {
+  const rows = (data.transactions || []).map(newRow);
+  const customColumns = [...new Set(rows.flatMap((r) => Object.keys(r.extra)))];
+  return {
+    key: "d" + keySeq++,
+    kind,                       // "draft" (uploaded) | "saved" (loaded from DB)
+    savedIds: sourceEnv && id ? { [sourceEnv]: id } : {},
+    fields: {
+      bank: data.bank || "Other",
+      account_type: data.account_type || "checking",
+      account_name: data.account_name || "",
+      account_last4: data.account_last4 || "",
+      period_start: data.period_start || "",
+      period_end: data.period_end || "",
+      opening_balance: data.opening_balance ?? "",
+      closing_balance: data.closing_balance ?? "",
+      total_credits: data.total_credits ?? "",
+      total_debits: data.total_debits ?? "",
+    },
+    extraFields: Object.entries(data.extra || {}).map(([k, v]) => ({ _k: keySeq++, key: k, value: v })),
+    rows,
+    customColumns,
+    unparsed: (data.unparsed_lines || []).map((u) => ({ ...u, _k: keySeq++ })),
+    warnings: data.warnings || [],
+    rawText: data.raw_text || "",
+    filename: data.source_filename || data.filename || "",
+    sha: data.file_sha256 || null,
+    pdfUrl: file ? URL.createObjectURL(file) : null,
+    dirty: kind === "draft",
+    lastRecon: null,
+  };
+}
+
+const activeDoc = () => state.docs.find((d) => d.key === state.activeKey) || null;
+
+function docTitle(d) {
+  const f = d.fields;
+  return `${f.bank}${f.account_last4 ? " ••" + f.account_last4 : ""}`;
+}
+
+// ------------------------------------------------------------------ reconciliation
+function reconcile(doc) {
+  const f = doc.fields;
+  const isCard = f.account_type === "credit_card";
+  const issues = [];
+  const rowFlags = new Map();
+  const flag = (row, level, code, msg, field) => {
+    if (!rowFlags.has(row._k)) rowFlags.set(row._k, []);
+    rowFlags.get(row._k).push({ level, code, msg, field });
+    issues.push({ level, msg: `Row ${doc.rows.indexOf(row) + 1}: ${msg}`, rowKey: row._k, field });
+  };
+
+  if (!f.bank.trim()) issues.push({ level: "err", msg: "Bank is required.", field: "bank" });
+  const opening = toCents(f.opening_balance), closing = toCents(f.closing_balance);
+  for (const [k, label] of [["opening_balance", "Opening balance"], ["closing_balance", "Closing balance"], ["total_credits", "Stated credits"], ["total_debits", "Stated debits"]]) {
+    if (Number.isNaN(toCents(f[k]))) issues.push({ level: "err", msg: `${label} is not a valid amount.`, field: k });
+  }
+  for (const k of ["period_start", "period_end"]) {
+    if (f[k] && !isDate(f[k])) issues.push({ level: "err", msg: `${k.replace("_", " ")} is not a valid date.`, field: k });
+  }
+  if (isDate(f.period_start) && isDate(f.period_end) && f.period_start > f.period_end)
+    issues.push({ level: "err", msg: "Period start is after period end.", field: "period_start" });
+
+  let credits = 0, debits = 0;
+  const seen = new Map();
+  for (const r of doc.rows) {
+    const c = toCents(r.amount);
+    if (!isDate(r.txn_date)) flag(r, "err", "date", "missing or invalid date", "txn_date");
+    if (r.post_date && !isDate(r.post_date)) flag(r, "err", "post", "invalid post date", "post_date");
+    if (!String(r.description).trim()) flag(r, "err", "desc", "missing description", "description");
+    if (c === null || Number.isNaN(c)) flag(r, "err", "amt", "missing or invalid amount", "amount");
+    else {
+      if (c === 0) flag(r, "warn", "zero", "amount is zero", "amount");
+      if (c > 0) credits += c; else debits += -c;
+    }
+    if (isDate(r.txn_date) && isDate(f.period_start) && isDate(f.period_end) &&
+        (r.txn_date < f.period_start || r.txn_date > f.period_end))
+      flag(r, "warn", "range", "date is outside the statement period", "txn_date");
+    if (r.sign_source === "guess") flag(r, "warn", "sign", "+/- sign was guessed — confirm it", "amount");
+    const dupKey = `${r.txn_date}|${c}|${String(r.description).toLowerCase().replace(/\s+/g, " ").trim()}`;
+    if (r.txn_date && c) {
+      if (seen.has(dupKey)) flag(r, "warn", "dup", `looks like a duplicate of row ${doc.rows.indexOf(seen.get(dupKey)) + 1}`, "description");
+      else seen.set(dupKey, r);
+    }
+  }
+  const net = credits - debits;
+  let expected = null, diff = null;
+  if (opening !== null && !Number.isNaN(opening)) {
+    expected = isCard ? opening - net : opening + net;
+    if (closing !== null && !Number.isNaN(closing)) diff = closing - expected;
+  }
+  if (opening === null) issues.push({ level: "warn", msg: "Opening balance is empty — can't reconcile.", field: "opening_balance" });
+  if (closing === null) issues.push({ level: "warn", msg: "Closing balance is empty — can't reconcile.", field: "closing_balance" });
+  if (diff !== null && diff !== 0)
+    issues.unshift({ level: "err", msg: `Out of balance by ${fmt(Math.abs(diff))}: transactions ${isCard ? "give a balance owed of" : "end at"} ${fmt(expected)} but the statement says ${fmt(closing)}.` });
+
+  const statedCr = toCents(f.total_credits), statedDr = toCents(f.total_debits);
+  if (statedCr !== null && !Number.isNaN(statedCr) && statedCr !== credits)
+    issues.push({ level: isCard ? "info" : "warn", msg: `${isCard ? "Payments & credits" : "Deposits"} add up to ${fmt(credits)}; statement total says ${fmt(statedCr)} (off ${fmt(Math.abs(statedCr - credits))}).`, field: "total_credits" });
+  if (statedDr !== null && !Number.isNaN(statedDr) && statedDr !== debits)
+    issues.push({ level: isCard ? "info" : "warn", msg: `${isCard ? "Charges" : "Withdrawals"} add up to ${fmt(debits)}; statement total says ${fmt(statedDr)} (off ${fmt(Math.abs(statedDr - debits))}).${isCard ? " Card totals often exclude fees/interest." : ""}`, field: "total_debits" });
+  if (doc.unparsed.length)
+    issues.push({ level: "info", msg: `${doc.unparsed.length} line(s) from the PDF were not used — check “Possibly missed lines”.`, target: "unparsed" });
+
+  const errors = issues.filter((i) => i.level === "err");
+  const blocking = errors.filter((i) => !i.msg.startsWith("Out of balance"));
+  const status = blocking.length ? "bad" : diff === null ? "warn" : diff === 0 ? "ok" : "bad";
+  return { credits, debits, net, opening, closing, expected, diff, issues, rowFlags, blocking, status, isCard };
+}
+
+// ------------------------------------------------------------------ rendering: sidebar
+function renderEnv() {
+  const sel = $("#envSelect");
+  sel.innerHTML = state.envs.map((e) =>
+    `<option value="${e.name}" ${e.configured ? "" : "disabled"} ${e.name === state.env ? "selected" : ""}>${e.name.toUpperCase()}${e.configured ? "" : " (not configured)"}</option>`).join("");
+  const cur = state.envs.find((e) => e.name === state.env);
+  $("#dbUrl").textContent = cur?.url || "";
+  $("#dbUrl").title = cur?.url || "";
+  document.body.classList.toggle("prod", state.env === "prod");
+  $("#savedEnvName").textContent = state.env.toUpperCase();
+  $("#commitBtn").textContent = `Commit to ${state.env.toUpperCase()}`;
+}
+
+function renderDocList() {
+  $("#openCount").textContent = state.docs.length ? `(${state.docs.length})` : "";
+  $("#docList").innerHTML = state.docs.map((d) => {
+    const r = d.lastRecon || reconcile(d);
+    const pill = r.status === "ok" ? `<span class="pill ok">balanced</span>`
+      : r.diff ? `<span class="pill bad">off ${esc(fmt(Math.abs(r.diff)))}</span>`
+      : r.status === "bad" ? `<span class="pill bad">errors</span>` : `<span class="pill warn">check</span>`;
+    const where = Object.keys(d.savedIds).map((e) => e.toUpperCase()).join(", ");
+    return `<li data-key="${d.key}" class="${d.key === state.activeKey ? "active" : ""}">
+      <span class="name"><b>${esc(docTitle(d))}</b><small>${esc(monthLabel(d.fields.period_end))} · ${d.rows.length} rows${where ? " · in " + esc(where) : ""}</small></span>
+      ${d.dirty ? `<span class="pill dirty" title="Unsaved changes">●</span>` : ""}${pill}</li>`;
+  }).join("") || `<li class="muted">Nothing open</li>`;
+}
+
+async function loadSaved() {
+  const list = $("#savedList");
+  list.innerHTML = `<li class="muted">Loading…</li>`;
+  try {
+    state.saved = await api(`/api/statements?env=${state.env}`);
+    list.innerHTML = state.saved.map((s) => `<li data-id="${s.id}">
+        <span class="name"><b>${esc(s.bank)}${s.account_last4 ? " ••" + esc(s.account_last4) : ""}</b>
+        <small>${esc(monthLabel(s.period_end))} · ${s.transaction_count} rows · #${s.id}</small></span>
+        <button class="link danger" data-del="${s.id}" title="Delete from ${state.env}">✕</button></li>`).join("")
+      || `<li class="muted">No statements yet</li>`;
+  } catch (e) {
+    list.innerHTML = `<li class="muted" style="color:var(--bad)">${esc(e.message)}</li>`;
+  }
+}
+
+// ------------------------------------------------------------------ rendering: editor
+function fieldInput(name, label, value, type = "text", attrs = "") {
+  return `<label class="f">${label}<input data-field="${name}" type="${type}" value="${esc(value)}" ${attrs}></label>`;
+}
+
+function renderEditor() {
+  const doc = activeDoc();
+  $("#emptyState").hidden = !!doc;
+  $("#editor").hidden = !doc;
+  $("#commitBar").hidden = !doc;
+  if (!doc) return;
+  const f = doc.fields;
+  const showPdf = state.showPdf && (doc.pdfUrl || doc.rawText);
+
+  $("#editor").innerHTML = `
+  ${doc.warnings.length ? `<ul class="warnings">${doc.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}
+  <div class="split ${showPdf ? "with-pdf" : ""}">
+    <div class="col">
+      <section class="card">
+        <h2>Statement <span class="muted" style="font-weight:400">${esc(doc.filename)}</span><span class="spacer"></span>
+          ${(doc.pdfUrl || doc.rawText) ? `<button type="button" id="togglePdf">${state.showPdf ? "Hide" : "Show"} original</button>` : ""}</h2>
+        <div class="grid" id="headerFields">
+          <label class="f">Bank<select data-field="bank">${[...new Set([...BANKS, f.bank])].map((b) => `<option ${b === f.bank ? "selected" : ""}>${esc(b)}</option>`).join("")}</select></label>
+          <label class="f">Account type<select data-field="account_type">${TYPES.map(([v, l]) => `<option value="${v}" ${v === f.account_type ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          ${fieldInput("account_name", "Account name", f.account_name, "text", 'placeholder="e.g. Joint checking"')}
+          ${fieldInput("account_last4", "Last 4 digits", f.account_last4, "text", 'maxlength="8"')}
+          ${fieldInput("period_start", "Period start", f.period_start, "date")}
+          ${fieldInput("period_end", "Period end", f.period_end, "date")}
+          ${fieldInput("opening_balance", f.account_type === "credit_card" ? "Previous balance" : "Opening balance", f.opening_balance, "text", 'inputmode="decimal"')}
+          ${fieldInput("closing_balance", f.account_type === "credit_card" ? "New balance" : "Closing balance", f.closing_balance, "text", 'inputmode="decimal"')}
+          ${fieldInput("total_credits", f.account_type === "credit_card" ? "Stated payments & credits" : "Stated deposits", f.total_credits, "text", 'inputmode="decimal"')}
+          ${fieldInput("total_debits", f.account_type === "credit_card" ? "Stated purchases" : "Stated withdrawals", f.total_debits, "text", 'inputmode="decimal"')}
+        </div>
+        <div class="custom-fields" id="customFields">
+          ${doc.extraFields.map((x) => `<div class="row" data-xk="${x._k}">
+            <input data-x="key" value="${esc(x.key)}" placeholder="Field name">
+            <input data-x="value" value="${esc(x.value)}" placeholder="Value">
+            <button type="button" class="link danger" data-rmx="${x._k}" title="Remove field">✕</button></div>`).join("")}
+        </div>
+        <button type="button" class="link" id="addField" style="margin-top:8px">+ Add field</button>
+      </section>
+
+      <section class="card">
+        <h2>Reconciliation <span id="reconPill"></span></h2>
+        <div id="recon"></div>
+      </section>
+
+      <section class="card">
+        <h2>Transactions <span class="muted" style="font-weight:400" id="rowCount"></span></h2>
+        <div class="toolbar">
+          <button type="button" id="addRowTop">+ Add row</button>
+          <button type="button" id="addCol">+ Add column</button>
+          <button type="button" id="sortDate">Sort by date</button>
+          <input type="search" id="filter" placeholder="Filter rows…" value="${esc(state.filter)}">
+          <span class="muted" style="font-size:12px">+ money in / payments &nbsp;·&nbsp; − money out / charges</span>
+        </div>
+        <div class="tablewrap"><table class="txns" style="min-width:${880 + doc.customColumns.length * 130}px">
+          <colgroup><col style="width:32px"><col style="width:138px"><col style="width:138px"><col><col style="width:130px"><col style="width:112px">
+            ${doc.customColumns.map(() => `<col style="width:130px">`).join("")}<col style="width:92px"><col style="width:${doc.pdfUrl ? 140 : 110}px"></colgroup>
+          <thead><tr><th>#</th><th>Date</th><th>Post date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th>
+          ${doc.customColumns.map((c) => `<th>${esc(c)} <button type="button" class="rmcol" data-rmcol="${esc(c)}" title="Remove column">✕</button></th>`).join("")}
+          <th>Checks</th><th></th></tr></thead>
+          <tbody id="tbody">${doc.rows.map((r, i) => rowHtml(doc, r, i)).join("")}</tbody>
+        </table></div>
+        <button type="button" class="link" id="addRowBottom" style="margin-top:8px">+ Add row</button>
+      </section>
+
+      <section class="card" id="unparsedCard">
+        <details ${doc.unparsed.length ? "open" : ""}>
+          <summary>Possibly missed lines (${doc.unparsed.length})</summary>
+          <p class="muted" style="margin:6px 0">Lines from the PDF that have a date or dollar amount but weren't turned into a transaction or header field.</p>
+          ${doc.unparsed.length ? `<button type="button" class="link" id="dismissAll">Dismiss all</button>` : ""}
+          <ul class="unparsed">${doc.unparsed.map((u) => `<li data-uk="${u._k}"><small class="muted">p${u.page}</small><span>${esc(u.text)}</span>
+            <button type="button" class="link" data-addline="${u._k}">Add as row</button><button type="button" class="link danger" data-dismiss="${u._k}">Dismiss</button></li>`).join("")}</ul>
+        </details>
+      </section>
+    </div>
+    ${showPdf ? `<div class="pdfpane">
+      <div class="tabs">
+        ${doc.pdfUrl ? `<button type="button" data-pane="pdf" class="${state.pane === "pdf" ? "primary" : ""}">PDF</button>` : ""}
+        <button type="button" data-pane="text" class="${state.pane === "text" || !doc.pdfUrl ? "primary" : ""}">Extracted text</button>
+      </div>
+      ${doc.pdfUrl && state.pane === "pdf" ? `<iframe id="pdfFrame" src="${doc.pdfUrl}" title="Original statement"></iframe>` : `<pre>${esc(doc.rawText || "No text available.")}</pre>`}
+    </div>` : ""}
+  </div>`;
+  refreshChecks();
+}
+
+function rowHtml(doc, r, i) {
+  const c = toCents(r.amount);
+  const hidden = state.filter && !JSON.stringify([r.txn_date, r.description, r.category, r.amount, r.extra]).toLowerCase().includes(state.filter.toLowerCase());
+  return `<tr data-k="${r._k}" ${hidden ? "hidden" : ""}>
+    <td class="num">${i + 1}</td>
+    <td><input type="date" data-f="txn_date" value="${esc(r.txn_date)}"></td>
+    <td><input type="date" data-f="post_date" value="${esc(r.post_date)}"></td>
+    <td><input data-f="description" value="${esc(r.description)}" title="${esc(r.source_line || "")}"></td>
+    <td><input data-f="category" value="${esc(r.category)}" list="categories"></td>
+    <td><input class="amount ${c > 0 ? "in" : ""}" data-f="amount" value="${esc(r.amount)}" inputmode="decimal"></td>
+    ${doc.customColumns.map((col) => `<td><input data-col="${esc(col)}" value="${esc(r.extra[col] ?? "")}"></td>`).join("")}
+    <td class="flags"></td>
+    <td class="rowbtns">
+      ${r.page && doc.pdfUrl ? `<button type="button" class="link" data-page="${r.page}" title="Show page ${r.page} of the PDF">p${r.page}</button>` : ""}
+      <button type="button" data-flip title="Flip +/− sign">±</button>
+      <button type="button" data-insert title="Insert a row below">+</button>
+      <button type="button" class="danger" data-del title="Delete row">✕</button>
+    </td></tr>`;
+}
+
+/** Recompute reconciliation and row flags without rebuilding inputs (keeps focus while typing). */
+function refreshChecks() {
+  const doc = activeDoc();
+  if (!doc) return;
+  const r = reconcile(doc);
+  doc.lastRecon = r;
+  const card = r.isCard;
+  const statClass = r.diff === null ? "" : r.diff === 0 ? "ok" : "bad";
+  $("#recon").innerHTML = `
+    <div class="recon">
+      <div class="stat"><div class="k">${card ? "Previous balance" : "Opening"}</div><div class="v">${fmt(r.opening)}</div></div>
+      <div class="stat"><div class="k">${card ? "Payments & credits" : "Money in"}</div><div class="v" style="color:var(--in)">+${fmt(r.credits)}</div></div>
+      <div class="stat"><div class="k">${card ? "Charges" : "Money out"}</div><div class="v">−${fmt(r.debits)}</div></div>
+      <div class="stat"><div class="k">Calculated closing</div><div class="v">${fmt(r.expected)}</div></div>
+      <div class="stat"><div class="k">Statement closing</div><div class="v">${fmt(r.closing)}</div></div>
+      <div class="stat ${statClass}"><div class="k">Difference</div><div class="v">${r.diff === null ? "—" : fmt(r.diff)}</div></div>
+    </div>
+    <div class="formula">${card ? "Credit card: previous balance − payments/credits + charges = new balance" : "Opening + money in − money out = closing"}</div>
+    ${r.issues.length ? `<ul class="issues">${r.issues.map((i, n) => `<li class="${i.level}" data-issue="${n}">${esc(i.msg)}</li>`).join("")}</ul>` : `<p style="color:var(--ok);margin:10px 0 0">No issues found.</p>`}`;
+  $("#reconPill").innerHTML = r.status === "ok" ? `<span class="pill ok">Balanced</span>` : r.diff ? `<span class="pill bad">Off by ${esc(fmt(Math.abs(r.diff)))}</span>` : r.status === "bad" ? `<span class="pill bad">Needs fixes</span>` : `<span class="pill warn">Incomplete</span>`;
+  $("#recon").querySelectorAll("[data-issue]").forEach((li) => li.addEventListener("click", () => goToIssue(r.issues[+li.dataset.issue])));
+
+  // Row flags
+  for (const tr of document.querySelectorAll("#tbody tr")) {
+    const flags = r.rowFlags.get(+tr.dataset.k) || [];
+    tr.classList.toggle("has-err", flags.some((f) => f.level === "err"));
+    tr.classList.toggle("has-warn", !flags.some((f) => f.level === "err") && flags.length > 0);
+    tr.querySelectorAll("input").forEach((inp) => inp.classList.toggle("bad", flags.some((f) => f.level === "err" && f.field === inp.dataset.f)));
+    const labels = { date: "date", post: "post", desc: "desc", amt: "amount", zero: "$0", range: "period", sign: "±?", dup: "dup" };
+    tr.querySelector(".flags").innerHTML = flags.map((f) => `<span class="flag ${f.level}" title="${esc(f.msg)}">${labels[f.code]}</span>`).join("");
+    const amt = tr.querySelector("[data-f=amount]");
+    amt.classList.toggle("in", toCents(amt.value) > 0);
+  }
+  $("#rowCount").textContent = `(${doc.rows.length})`;
+  $("#commitStatus").textContent = r.blocking.length ? `${r.blocking.length} error(s) to fix before committing`
+    : r.diff ? `Doesn't balance (off ${fmt(Math.abs(r.diff))})` : r.diff === 0 ? "Balanced — ready to commit" : "Fill in balances to reconcile";
+  renderDocList();
+}
+
+function goToIssue(issue) {
+  if (!issue) return;
+  if (issue.target === "unparsed") { $("#unparsedCard").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  let el = null;
+  if (issue.rowKey) {
+    const tr = document.querySelector(`#tbody tr[data-k="${issue.rowKey}"]`);
+    if (tr) { tr.hidden = false; el = tr.querySelector(`[data-f="${issue.field}"]`) || tr.querySelector("input"); flashRow(tr); }
+  } else if (issue.field) {
+    el = document.querySelector(`#headerFields [data-field="${issue.field}"]`);
+  }
+  if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.focus({ preventScroll: true }); }
+}
+function flashRow(tr) { tr.classList.remove("flash"); void tr.offsetWidth; tr.classList.add("flash"); }
+
+function markDirty(doc) { doc.dirty = true; }
+
+// ------------------------------------------------------------------ editor events (delegated)
+$("#editor").addEventListener("input", (e) => {
+  const doc = activeDoc(); if (!doc) return;
+  const t = e.target;
+  if (t.dataset.field) {
+    doc.fields[t.dataset.field] = t.value;
+    markDirty(doc);
+    if (t.dataset.field === "account_type") return renderEditor();
+  } else if (t.dataset.x) {
+    const x = doc.extraFields.find((x) => x._k === +t.closest("[data-xk]").dataset.xk);
+    x[t.dataset.x] = t.value; markDirty(doc);
+  } else if (t.id === "filter") {
+    state.filter = t.value;
+    document.querySelectorAll("#tbody tr").forEach((tr) => {
+      const r = doc.rows.find((r) => r._k === +tr.dataset.k);
+      tr.hidden = state.filter && !JSON.stringify([r.txn_date, r.description, r.category, r.amount, r.extra]).toLowerCase().includes(state.filter.toLowerCase());
+    });
+    return;
+  } else {
+    const tr = t.closest("tr[data-k]"); if (!tr) return;
+    const row = doc.rows.find((r) => r._k === +tr.dataset.k);
+    if (t.dataset.f) {
+      row[t.dataset.f] = t.value;
+      if (t.dataset.f === "amount") row.sign_source = "manual";
+    } else if (t.dataset.col) row.extra[t.dataset.col] = t.value;
+    markDirty(doc);
+  }
+  refreshChecks();
+});
+$("#editor").addEventListener("change", (e) => {
+  // Tidy amounts when the user leaves the field: "1,234.5" -> "1234.50"
+  const t = e.target, doc = activeDoc();
+  if (!doc) return;
+  const isAmt = t.dataset.f === "amount" || ["opening_balance", "closing_balance", "total_credits", "total_debits"].includes(t.dataset.field);
+  if (!isAmt) { if (t.tagName === "SELECT" && t.dataset.field) { doc.fields[t.dataset.field] = t.value; markDirty(doc); renderEditor(); } return; }
+  const c = toCents(t.value);
+  if (c !== null && !Number.isNaN(c)) {
+    t.value = centsToStr(c);
+    if (t.dataset.f) doc.rows.find((r) => r._k === +t.closest("tr").dataset.k).amount = t.value;
+    else doc.fields[t.dataset.field] = t.value;
+    refreshChecks();
+  }
+});
+
+$("#editor").addEventListener("click", async (e) => {
+  const doc = activeDoc(); if (!doc) return;
+  const t = e.target.closest("button"); if (!t) return;
+  const tr = t.closest("tr[data-k]");
+  const row = tr && doc.rows.find((r) => r._k === +tr.dataset.k);
+  if (t.id === "togglePdf") { state.showPdf = !state.showPdf; return renderEditor(); }
+  if (t.dataset.pane) { state.pane = t.dataset.pane; return renderEditor(); }
+  if (t.id === "addField") { doc.extraFields.push({ _k: keySeq++, key: "", value: "" }); markDirty(doc); renderEditor(); return $("#customFields .row:last-child input")?.focus(); }
+  if (t.dataset.rmx) { doc.extraFields = doc.extraFields.filter((x) => x._k !== +t.dataset.rmx); markDirty(doc); return renderEditor(); }
+  if (t.id === "addRowTop" || t.id === "addRowBottom") return addRow(doc, t.id === "addRowTop" ? 0 : doc.rows.length);
+  if (t.id === "sortDate") { doc.rows.sort((a, b) => (a.txn_date || "9999").localeCompare(b.txn_date || "9999")); markDirty(doc); return renderEditor(); }
+  if (t.id === "addCol") {
+    const choice = await modal({ title: "Add a column", html: `<label class="f">Column name<input id="colName" placeholder="e.g. Memo, Tax category, Receipt #"></label>`,
+      buttons: [{ label: "Cancel", value: "cancel" }, { label: "Add column", value: "ok", cls: "primary" }] });
+    const name = (document.getElementById("colName")?.value || "").trim();
+    if (choice !== "ok" || !name) return;
+    if (["txn_date", "post_date", "description", "category", "amount"].includes(name) || doc.customColumns.includes(name)) return toast("That column already exists", true);
+    doc.customColumns.push(name); markDirty(doc); return renderEditor();
+  }
+  if (t.dataset.rmcol) {
+    const col = t.dataset.rmcol;
+    const used = doc.rows.filter((r) => String(r.extra[col] ?? "").trim()).length;
+    if (used && (await modal({ title: `Remove “${col}”?`, html: `<p>${used} row(s) have a value in this column. They will be removed.</p>`, buttons: [{ label: "Cancel", value: "cancel" }, { label: "Remove column", value: "ok", cls: "danger solid" }] })) !== "ok") return;
+    doc.customColumns = doc.customColumns.filter((c) => c !== col);
+    doc.rows.forEach((r) => delete r.extra[col]); markDirty(doc); return renderEditor();
+  }
+  if (t.dataset.addline) return addFromLine(doc, +t.dataset.addline);
+  if (t.dataset.dismiss) { doc.unparsed = doc.unparsed.filter((u) => u._k !== +t.dataset.dismiss); return renderEditor(); }
+  if (t.id === "dismissAll") { doc.unparsed = []; return renderEditor(); }
+  if (row && "del" in t.dataset) {
+    const idx = doc.rows.indexOf(row);
+    doc.rows.splice(idx, 1); markDirty(doc);
+    tr.remove(); renumber(); refreshChecks();
+    toastUndo(`Deleted row ${idx + 1}`, () => { doc.rows.splice(idx, 0, row); renderEditor(); });
+    return;
+  }
+  if (row && "insert" in t.dataset) return addRow(doc, doc.rows.indexOf(row) + 1, { txn_date: row.txn_date });
+  if (row && "flip" in t.dataset) {
+    const c = toCents(row.amount);
+    if (c === null || Number.isNaN(c)) return;
+    row.amount = centsToStr(-c); row.sign_source = "manual"; markDirty(doc);
+    tr.querySelector("[data-f=amount]").value = row.amount; return refreshChecks();
+  }
+  if (t.dataset.page) {
+    state.showPdf = true; state.pane = "pdf";
+    if (!$("#pdfFrame")) renderEditor();
+    const frame = $("#pdfFrame");
+    if (frame) frame.src = `${doc.pdfUrl}#page=${t.dataset.page}`;
+  }
+});
+
+function renumber() { document.querySelectorAll("#tbody tr").forEach((tr, i) => (tr.querySelector(".num").textContent = i + 1)); }
+
+function addRow(doc, index, init = {}) {
+  const row = newRow(init);
+  doc.rows.splice(index, 0, row); markDirty(doc);
+  renderEditor();
+  const tr = document.querySelector(`#tbody tr[data-k="${row._k}"]`);
+  if (tr) { flashRow(tr); const inp = tr.querySelector(init.txn_date ? "[data-f=description]" : "[data-f=txn_date]"); inp.scrollIntoView({ block: "center" }); inp.focus(); }
+  return row;
+}
+
+/** Turn a "possibly missed" PDF line into a row, guessing its date and amount. */
+function addFromLine(doc, uk) {
+  const u = doc.unparsed.find((x) => x._k === uk);
+  if (!u) return;
+  const text = u.text;
+  const dm = text.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  let txn_date = "";
+  if (dm) {
+    const end = isDate(doc.fields.period_end) ? new Date(doc.fields.period_end + "T00:00:00") : new Date();
+    let y = dm[3] ? (dm[3].length === 2 ? 2000 + +dm[3] : +dm[3]) : end.getFullYear();
+    // MM/DD with no year: a date after the period end belongs to the previous year (Dec rows on a Jan statement).
+    if (!dm[3] && new Date(y, +dm[1] - 1, +dm[2]) > new Date(end.getTime() + 7 * 864e5)) y -= 1;
+    txn_date = `${y}-${String(dm[1]).padStart(2, "0")}-${String(dm[2]).padStart(2, "0")}`;
+  }
+  const amounts = text.match(/-?\$?\(?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s?CR)?/g) || [];
+  let amount = "";
+  if (amounts.length) {
+    const c = toCents(amounts[0]);
+    // Default to "money out" for a checking account / "charge" for a card, unless printed as negative/credit.
+    amount = c === null || Number.isNaN(c) ? "" : centsToStr(doc.fields.account_type === "credit_card" ? -c : (c < 0 ? c : -Math.abs(c)));
+  }
+  const description = text.replace(/^\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\s*/, "").replace(/\s*-?\$?\(?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s?CR)?/g, "").trim();
+  doc.unparsed = doc.unparsed.filter((x) => x._k !== uk);
+  const index = txn_date ? doc.rows.findIndex((r) => r.txn_date > txn_date) : -1;
+  addRow(doc, index < 0 ? doc.rows.length : index, { txn_date, description, amount, page: u.page, source_line: text, sign_source: "guess" });
+}
+
+function toastUndo(msg, undo) {
+  const t = $("#toast");
+  t.innerHTML = `${esc(msg)} <button class="link" style="color:#9ec1ff">Undo</button>`;
+  t.className = "toast show";
+  t.querySelector("button").onclick = () => { undo(); t.className = "toast"; };
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.className = "toast"), 6000);
+}
+
+// ------------------------------------------------------------------ upload
+async function handleFiles(fileList) {
+  const files = [...fileList].filter((f) => /\.pdf$/i.test(f.name) || f.type === "application/pdf");
+  if (!files.length) return toast("Please choose PDF files", true);
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files", f));
+  toast(`Reading ${files.length} statement(s)…`);
+  try {
+    const drafts = await api("/api/parse", { method: "POST", body: fd });
+    drafts.forEach((d, i) => {
+      const doc = makeDoc(d, { kind: "draft", file: files[i] });
+      state.docs.push(doc);
+      state.activeKey = doc.key;
+    });
+    toast(`Loaded ${drafts.length} statement(s)`);
+    renderAll();
+  } catch (e) { toast("Upload failed: " + e.message, true); }
+}
+
+const drop = $("#drop"), fileInput = $("#fileInput");
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") fileInput.click(); });
+fileInput.addEventListener("change", () => { handleFiles(fileInput.files); fileInput.value = ""; });
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files));
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => { e.preventDefault(); if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files); });
+
+$("#newBlank").addEventListener("click", () => {
+  const doc = makeDoc({ bank: "Other", account_type: "checking", transactions: [] }, { kind: "draft" });
+  doc.filename = "(entered by hand)";
+  state.docs.push(doc); state.activeKey = doc.key; renderAll();
+});
+
+// ------------------------------------------------------------------ sidebar events
+$("#docList").addEventListener("click", (e) => {
+  const li = e.target.closest("li[data-key]"); if (!li) return;
+  state.activeKey = li.dataset.key; state.filter = ""; renderAll();
+});
+
+$("#savedList").addEventListener("click", async (e) => {
+  const del = e.target.closest("[data-del]");
+  if (del) return deleteSaved(+del.dataset.del);
+  const li = e.target.closest("li[data-id]"); if (!li) return;
+  const id = +li.dataset.id;
+  const open = state.docs.find((d) => d.savedIds[state.env] === id);
+  if (open) { state.activeKey = open.key; return renderAll(); }
+  try {
+    const data = await api(`/api/statements/${id}?env=${state.env}`);
+    const doc = makeDoc(data, { kind: "saved", sourceEnv: state.env, id });
+    state.docs.push(doc); state.activeKey = doc.key; state.filter = ""; renderAll();
+  } catch (err) { toast(err.message, true); }
+});
+
+async function deleteSaved(id) {
+  const s = state.saved.find((x) => x.id === id);
+  const isProd = state.env === "prod";
+  const ok = await modal({
+    title: `Delete statement #${id} from ${state.env.toUpperCase()}?`,
+    html: `<p>${esc(s?.bank || "")} ${s?.account_last4 ? "••" + esc(s.account_last4) : ""} · ${esc(monthLabel(s?.period_end))} · ${s?.transaction_count ?? "?"} transactions.</p><p>This permanently removes it and its transactions from the database.</p>`,
+    confirmText: isProd ? "PROD" : null,
+    buttons: [{ label: "Cancel", value: "cancel" }, { label: "Delete", value: "ok", cls: "danger solid", needsConfirm: isProd }],
+  });
+  if (ok !== "ok") return;
+  try {
+    await api(`/api/statements/${id}?env=${state.env}&confirm_prod=${isProd}`, { method: "DELETE" });
+    state.docs.forEach((d) => { if (d.savedIds[state.env] === id) { delete d.savedIds[state.env]; d.dirty = true; } });
+    toast(`Deleted #${id}`); loadSaved(); renderDocList();
+  } catch (e) { toast(e.message, true); }
+}
+
+$("#refreshSaved").addEventListener("click", loadSaved);
+$("#envSelect").addEventListener("change", (e) => {
+  state.env = e.target.value; localSet("env", state.env);
+  renderEnv(); loadSaved();
+  if (state.env === "prod") toast("You are now pointed at PRODUCTION", true);
+});
+
+// ------------------------------------------------------------------ commit
+function payload(doc) {
+  const f = doc.fields;
+  const num = (v) => { const c = toCents(v); return c === null || Number.isNaN(c) ? null : centsToStr(c); };
+  const extra = {};
+  doc.extraFields.forEach((x) => { if (x.key.trim()) extra[x.key.trim()] = x.value; });
+  return {
+    bank: f.bank.trim(), account_type: f.account_type, account_name: f.account_name.trim() || null,
+    account_last4: f.account_last4.trim() || null,
+    period_start: f.period_start || null, period_end: f.period_end || null,
+    opening_balance: num(f.opening_balance), closing_balance: num(f.closing_balance),
+    total_credits: num(f.total_credits), total_debits: num(f.total_debits),
+    source_filename: doc.filename || null, file_sha256: doc.sha, extra,
+    transactions: doc.rows.map((r) => {
+      const ex = {};
+      doc.customColumns.forEach((c) => { if (String(r.extra[c] ?? "").trim()) ex[c] = r.extra[c]; });
+      return { txn_date: r.txn_date, post_date: r.post_date || null, description: r.description.trim(), category: r.category.trim() || null, amount: num(r.amount), extra: ex };
+    }),
+  };
+}
+
+async function commit() {
+  const doc = activeDoc(); if (!doc) return;
+  const env = state.env, ENV = env.toUpperCase();
+  const r = reconcile(doc);
+  if (r.blocking.length) {
+    refreshChecks(); goToIssue(r.blocking[0]);
+    return toast(`Fix ${r.blocking.length} error(s) first — they're listed under Reconciliation.`, true);
+  }
+  const notes = [];
+  if (r.diff) notes.push(`<p style="color:var(--bad)"><b>This statement does not balance</b> — it is off by ${esc(fmt(Math.abs(r.diff)))}.</p>`);
+  else if (r.diff === null) notes.push(`<p style="color:var(--warn)">Balances are missing, so this statement could not be reconciled.</p>`);
+  const updating = doc.savedIds[env];
+  const isProd = env === "prod";
+  const answer = await modal({
+    title: `${updating ? "Update" : "Save"} in ${ENV}?`,
+    html: `${notes.join("")}<p>${esc(docTitle(doc))} · ${esc(monthLabel(doc.fields.period_end))} · ${doc.rows.length} transactions
+      ${updating ? `<br>This replaces statement #${updating} in ${ENV}.` : ""}</p>`,
+    confirmText: isProd ? "PROD" : null,
+    buttons: [{ label: "Cancel", value: "cancel" }, { label: updating ? `Update in ${ENV}` : `Commit to ${ENV}`, value: "ok", cls: isProd ? "danger solid" : "primary", needsConfirm: isProd }],
+  });
+  if (answer !== "ok") return;
+  await sendCommit(doc, env, { id: updating || null });
+}
+
+async function sendCommit(doc, env, { id = null, replace_id = null }) {
+  const btn = $("#commitBtn");
+  btn.disabled = true;
+  try {
+    const saved = await api(`/api/statements?env=${env}`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ statement: payload(doc), id, replace_id, confirm_prod: env === "prod" }),
+    });
+    doc.savedIds[env] = saved.id; doc.dirty = false;
+    toast(`Committed to ${env.toUpperCase()} as statement #${saved.id}`);
+    if (env === state.env) loadSaved();
+    renderDocList(); refreshChecks();
+  } catch (e) {
+    if (e.status === 409 && e.body?.detail?.existing) {
+      const ex = e.body.detail.existing;
+      const a = await modal({
+        title: "Already in the database",
+        html: `<p>${esc(e.body.detail.message)}</p><p><b>#${ex.id}</b> · ${esc(ex.bank)} ${ex.account_last4 ? "••" + esc(ex.account_last4) : ""} · ${esc(monthLabel(ex.period_end))} · ${ex.transaction_count} transactions · file ${esc(ex.source_filename || "?")}</p><p>Replace it with what's on screen?</p>`,
+        confirmText: env === "prod" ? "PROD" : null,
+        buttons: [{ label: "Cancel", value: "cancel" }, { label: `Replace #${ex.id}`, value: "ok", cls: "danger solid", needsConfirm: env === "prod" }],
+      });
+      if (a === "ok") return sendCommit(doc, env, { replace_id: ex.id });
+    } else toast("Commit failed — nothing was saved. " + e.message, true);
+  } finally { btn.disabled = false; }
+}
+
+$("#commitBtn").addEventListener("click", commit);
+$("#discardBtn").addEventListener("click", async () => {
+  const doc = activeDoc(); if (!doc) return;
+  if (doc.dirty && (await modal({ title: "Close without committing?", html: "<p>Your edits to this statement haven't been committed and will be lost.</p>", buttons: [{ label: "Keep editing", value: "cancel" }, { label: "Close", value: "ok", cls: "danger solid" }] })) !== "ok") return;
+  if (doc.pdfUrl) URL.revokeObjectURL(doc.pdfUrl);
+  const i = state.docs.indexOf(doc);
+  state.docs.splice(i, 1);
+  state.activeKey = state.docs[Math.min(i, state.docs.length - 1)]?.key || null;
+  renderAll();
+});
+
+window.addEventListener("beforeunload", (e) => { if (state.docs.some((d) => d.dirty)) { e.preventDefault(); e.returnValue = ""; } });
+
+// ------------------------------------------------------------------ boot
+function renderAll() { renderEnv(); renderEditor(); renderDocList(); }
+
+(async function boot() {
+  try {
+    state.envs = await api("/api/environments");
+  } catch (e) { toast("Could not reach the server: " + e.message, true); state.envs = [{ name: "dev", configured: true }]; }
+  if (!state.envs.find((e) => e.name === state.env && e.configured)) state.env = "dev";
+  renderAll();
+  loadSaved();
+})();
+</script>
+</body>
+</html>
